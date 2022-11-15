@@ -77,16 +77,16 @@ def sead(cnt_size, exp_size):
         YsCoordinate1.append(xs_static[c] - xs_static[c - 1])
 
     YsCoordinate2 = [1]
-    for c in range(1, len(xs_static)):
-        YsCoordinate2.append(YsCoordinate1[c] / xs_static[c])
+    for c in range(0, len(xs_static)-1):
+        YsCoordinate2.append(YsCoordinate1[c] / xs_static[c+1])
 
     YsCoordinate3 = [1]
     for c in range(1, len(xs_dynamic)):
         YsCoordinate3.append(xs_dynamic[c] - xs_dynamic[c - 1])
 
     YsCoordinate4 = [1]
-    for c in range(1, len(xs_dynamic)):
-        YsCoordinate4.append(YsCoordinate3[c] / xs_dynamic[c])
+    for c in range(0, len(xs_dynamic)-1):
+        YsCoordinate4.append(YsCoordinate3[c] / xs_dynamic[c+1])
 
     axis_xss = [xs_static, xs_dynamic, YsCoordinate1, YsCoordinate2, YsCoordinate3, YsCoordinate4]
     return axis_xss
@@ -110,9 +110,9 @@ def ceader(delta, max_val):
     #     delta) + " relative error")
     shared_estimators.pop()
 
-    ys_coordinate2 = [0]
-    for c in range(1, len(shared_estimators)):
-        ys_coordinate2.append(different[c] / shared_estimators[c])
+    ys_coordinate2 = [1]
+    for c in range(0, len(shared_estimators)-1):
+        ys_coordinate2.append(different[c] / shared_estimators[c+1])
     axis_arr = [shared_estimators, different, ys_coordinate2]
     return axis_arr
 
@@ -297,8 +297,8 @@ def F2P_VS_rest(xs_f2p, cnt_size, x_counter, y_counter):
 
     # calculate the relative resolution for f2p
     ys_f2p_relative = [1]
-    for c in range(1, len(xs_f2p)):
-        ys_f2p_relative.append(ys_f2p_abs[c] / xs_f2p[c])
+    for c in range(0, len(xs_f2p)-1):
+        ys_f2p_relative.append(ys_f2p_abs[c] / xs_f2p[c + 1])
 
     min_del = min_delta(0.1, xs_f2p[-1], cnt_size)
     min_exp = ideal_exp_size(xs_f2p[-1], cnt_size)
@@ -375,7 +375,7 @@ delta_slider.on_changed(delta_changed)
 max_value.on_changed(max_value_changed)
 # toy example
 toy_fig, toy_axis = plt.subplots(2)
-toy_example(ceader(0.5, 10))
+toy_example(ceader(0.5, 200))
 
 plot_graphs(sead(8, 3))
 
