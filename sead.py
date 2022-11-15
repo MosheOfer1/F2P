@@ -345,4 +345,5 @@ max_value.on_changed(max_value_changed)
 # toy example
 toy_fig, toy_axis = plt.subplots(2)
 toy_example(0.5, 200)
+
 plot_graphs(8, 3)
