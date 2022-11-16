@@ -8,9 +8,9 @@ MARKER_SIZE = 16
 MARKER_SIZE_SMALL = 1
 LINE_WIDTH = 3
 LINE_WIDTH_SMALL = 1
-FONT_SIZE = 20
+FONT_SIZE = 12
 FONT_SIZE_SMALL = 5
-LEGEND_FONT_SIZE = 14
+LEGEND_FONT_SIZE = 8
 LEGEND_FONT_SIZE_SMALL = 5
 UNIFORM_CHAIN_MIG_COST = 600
 
@@ -19,14 +19,16 @@ UNIFORM_CHAIN_MIG_COST = 600
 # mfc='none' makes the markers empty.
 def set_plt_params(size='large'):
     if size == 'large':
-        matplotlib.rcParams.update({'font.size': FONT_SIZE,
+        matplotlib.rcParams.update_graph2({'font.size': FONT_SIZE,
                                     'legend.fontsize': LEGEND_FONT_SIZE,
                                     'xtick.labelsize': FONT_SIZE,
                                     'ytick.labelsize': FONT_SIZE,
                                     'axes.labelsize': FONT_SIZE,
-                                    'axes.titlesize': FONT_SIZE, })
+                                    'axes.titlesize': FONT_SIZE,
+                                    'lines.marker': 'x',
+                                    'lines.markeredgecolor': 'black'})
     else:
-        matplotlib.rcParams.update({'font.size': FONT_SIZE_SMALL,
+        matplotlib.rcParams.update_graph2({'font.size': FONT_SIZE_SMALL,
                                     'legend.fontsize': LEGEND_FONT_SIZE_SMALL,
                                     'xtick.labelsize': FONT_SIZE_SMALL,
                                     'ytick.labelsize': FONT_SIZE_SMALL,
@@ -34,10 +36,10 @@ def set_plt_params(size='large'):
                                     'axes.titlesize': FONT_SIZE_SMALL, })
 
 
-def pre_calculate_stages(cnt):
+def pre_calculate_stages(exp, cnt_size):
     stage = [1]
-    for i in range(1, 2 ** cnt):
-        stage.append(stage[i - 1] + (2 ** cnt))
+    for i in range(1, 2 ** exp):
+        stage.append(stage[i - 1] + 2 ** (cnt_size - exp))
     return stage
 
 
@@ -78,16 +80,16 @@ def binary_to_val_dynamic_sead(arr, stage):
         if exp_d == 8:
             return 1
     mantissa = from_binary(arr, exp_d + 1, len(arr) - 1)
-    return mantissa * 2 ** exp_d + stage[exp_d]
+    return (mantissa * (2 ** exp_d)) + stage[exp_d]
 
 
-def dynamic_sead(cnt_size):
+def dynamic_sead(cnt_size, exp_size):
     bits_arr = numpy.zeros(cnt_size, bool)
     xs_dynamic = []
     finish = True
     i = 0
+    stage = pre_calculate_stages(exp_size, cnt_size)
     # filing the dynamic array
-    stage = pre_calculate_stages(cnt_size)
     while finish:
         xs_dynamic.append(binary_to_val_dynamic_sead(bits_arr, stage))
         while True:
@@ -172,27 +174,29 @@ def sort_and_erase_duplicates(xs):
 
 
 def update_byte(val):
-    plot_graphs(8, val)
-
-
-def delta_changed(val):
-    update_cedar(val, max_value.val)
-
-
-def max_value_changed(val):
-    update_cedar(delta_slider.val, val)
-
-
-def update_cedar(delta, max_val):
-    plot_graph2(delta, max_val)
+    update_graph1(8, val)
 
 
 # plot the static and dynamic sead to one graph
 def plot_graphs(cnt_size, exp_size):
+    figure, axis = plt.subplots(2, 2)
+    Sliders.axis = axis
+    byte_slider = Slider(plt.axes([0.53, 0.95, 0.1, 0.04]), 'Exp', 2, 7, 3)
+    byte_slider.valstep = 1
+    byte_slider.on_changed(update_byte)
+    update_graph1(cnt_size, exp_size)
+    plt.tight_layout()
+    plt.show()
+
+
+def update_graph1(cnt_size, exp_size):
+    axis = Sliders.axis
     xs_static, ys_static_abs, ys_static_relative = static_sead(cnt_size, exp_size)
-    xs_dynamic, ys_dynamic_abs, ys_dynamic_relative = dynamic_sead(cnt_size)
+    xs_dynamic, ys_dynamic_abs, ys_dynamic_relative = dynamic_sead(cnt_size, exp_size)
     axis[0, 0].clear()
-    axis[0, 0].plot(xs_static, ys_static_abs)
+    # axis[0, 0] = plt.gca()
+    # axis[0, 0].grid(True)
+    axis[0, 0].plot(xs_static, ys_static_abs, marker='^', markevery=0.2, linestyle='dashed', )
     axis[0, 0].set_title('Static SEAD')
     axis[0, 0].set_xlabel('Real Value')
     axis[0, 0].set_ylabel('absolute resolution')
@@ -220,21 +224,34 @@ def plot_graphs(cnt_size, exp_size):
     axis[1, 1].set_ylabel('relative resolution')
     axis[1, 1].set_ylim([0, 0.15])
     axis[1, 1].set_xlim([0, xs_dynamic[-1]])
-    plt.tight_layout()
-    plt.show()
 
 
-# plot the CEDAR and the SEAD at the same graph
-def plot_graph2(delta, max_val):
+class Sliders:
+    axis = None
+    CURRENT_DELTA = 0.1
+    CURRENT_MAX_VAL = 2048
+    axs = []
+
+
+def delta_changed(val):
+    Sliders.CURRENT_DELTA = val
+    update_graph2(val, Sliders.CURRENT_MAX_VAL)
+
+
+def max_value_changed(val):
+    update_graph2(Sliders.CURRENT_DELTA, val)
+
+
+def update_graph2(delta, max_val):
+    axs = Sliders.axs
     xs_cedar_static, ys_cedar_static = cedar(delta, max_val)
     ys_cedar_relative = relative_resolution(xs_cedar_static, ys_cedar_static)
-
     # find fair conditions to compare between the different methods
     cnt_size_needed = math.ceil(math.log2(len(xs_cedar_static)))
     exp_size_needed = ideal_exp_size(xs_cedar_static[-1], cnt_size_needed)
 
     xs_sead_static, ys_sead_static_abs, ys_sead_static_relative = static_sead(cnt_size_needed, exp_size_needed)
-    xs_sead_dynamic, ys_sead_dynamic_abs, ys_sead_dynamic_relative = dynamic_sead(cnt_size_needed)
+    xs_sead_dynamic, ys_sead_dynamic_abs, ys_sead_dynamic_relative = dynamic_sead(cnt_size_needed, exp_size_needed)
 
     axs[0].clear()
     axs[0].plot(xs_cedar_static, ys_cedar_static, "-b", label="Static cedar")
@@ -258,42 +275,63 @@ def plot_graph2(delta, max_val):
     axs[1].set_ylabel('relative resolution')
 
 
-def F2P_VS_rest(xs_f2p, cnt_size, x_counter, y_counter):
+# plot the CEDAR and the SEAD at the same graph
+def plot_graph2(delta, max_val):
+    fig, axs = plt.subplots(2)
+    Sliders.axs = axs
+    delta_slider = Slider(plt.axes([0.1, 0.95, 0.1, 0.04]), 'Delta', 0.01, 0.2, 0.1)
+    delta_slider.valstep = 0.01
+    delta_slider.on_changed(delta_changed)
+    max_value = Slider(plt.axes([0.32, 0.95, 0.1, 0.04]), 'Max Value', 255, 5000, 2048)
+    max_value.valstep = 20
+    max_value.on_changed(max_value_changed)
+    update_graph2(delta, max_val)
+    plt.tight_layout()
+    plt.show()
+
+
+def F2P_VS_rest(xs_f2p, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_axis_rel):
     # calculate the absolute resolution for f2p
     ys_f2p_abs = absolute_resolution(xs_f2p)
     # calculate the relative resolution for f2p
     ys_f2p_relative = relative_resolution(xs_f2p, ys_f2p_abs)
+    # for fare comparison with CEDAR we need to check the min delta
     min_del = min_delta(0.1, xs_f2p[-1], cnt_size)
+    # for fare comparison with CEDAR we need to check the min exp
     min_exp = ideal_exp_size(xs_f2p[-1], cnt_size)
-    # compare to SEAD method and CEDAR
+    # compare to SEAD method and CEDAR to F2P
     xs_sead_static, ys_sead_static_abs, ys_sead_static_relative = static_sead(cnt_size, min_exp)
     xs_cedar_static, ys_cedar_static = cedar(min_del, xs_f2p[-1])
     ys_cedar_relative = relative_resolution(xs_cedar_static, ys_cedar_static)
-
     f2p_axis_abs[x_counter, y_counter].set_title(
         str(cnt_size) + " bits, " + str(round(min_del, 2)) + " Delta, " + str(min_exp) + " exp, " + "max " + str(
             xs_f2p[-1]))
     f2p_axis_abs[x_counter, y_counter].plot(xs_cedar_static, ys_cedar_static, "-b", label="Static cedar")
     f2p_axis_abs[x_counter, y_counter].plot(xs_sead_static, ys_sead_static_abs, "-r", label="Static SEAD")
-    f2p_axis_abs[x_counter, y_counter].plot(xs_f2p, ys_f2p_abs, "-g", label="F2P")
+    f2p_axis_abs[x_counter, y_counter].plot(xs_f2p, ys_f2p_abs, "-gD", label="F2P", markevery=0.2)
     f2p_axis_abs[x_counter, y_counter].set_xlim([0, xs_cedar_static[-1]])
     f2p_axis_abs[x_counter, y_counter].set_ylim([0, ys_f2p_abs[-1] * 5])
+    plt.tight_layout()
 
     f2p_axis_rel[x_counter, y_counter].set_title(
         str(cnt_size) + " bits, " + str(round(min_del, 2)) + " Delta, " + str(min_exp) + " exp, " + "max " + str(
             xs_f2p[-1]))
     f2p_axis_rel[x_counter, y_counter].plot(xs_cedar_static, ys_cedar_relative, "-b", label="Static cedar")
     f2p_axis_rel[x_counter, y_counter].plot(xs_sead_static, ys_sead_static_relative, "-r", label="Static SEAD")
-    f2p_axis_rel[x_counter, y_counter].plot(xs_f2p, ys_f2p_relative, "-g", label="F2P")
+    f2p_axis_rel[x_counter, y_counter].plot(xs_f2p, ys_f2p_relative, "-gD", label="F2P", markevery=0.2)
     f2p_axis_rel[x_counter, y_counter].set_xlim([0, xs_cedar_static[-1]])
-    f2p_axis_rel[x_counter, y_counter].set_ylim([0,
-                                                 max(ys_sead_static_relative[y] for y in
-                                                     range((int)(len(ys_sead_static_relative) / 2),
-                                                           len(ys_sead_static_relative)))])
-    plt.tight_layout()
+    f2p_axis_rel[x_counter, y_counter]\
+        .set_ylim([0, max(ys_sead_static_relative[y]*1.1 for y in range((int)(len(ys_sead_static_relative) / 2),
+                                                                        len(ys_sead_static_relative)))])
+    f2p_axis_abs[0, 0].legend(loc="upper left")
+    f2p_axis_rel[0, 0].legend(loc="upper left")
 
 
+# function to read the external files and make them lists
 def res_files_to_G():
+    f2p_figure_abs, f2p_axis_abs = plt.subplots(2, 2)
+    f2p_figure_rel, f2p_axis_rel = plt.subplots(2, 2)
+    # read the F2P information from external files and plot them in two different figures
     x_counter = 0
     n_counter = 13
     while n_counter < 15:
@@ -304,46 +342,24 @@ def res_files_to_G():
                 lines = fp.readlines()
                 for line in lines:
                     xs.append(int(line.split("=", 1)[1]))
-                F2P_VS_rest(xs, n_counter, x_counter, h_counter - 1)
+                # call to plot the current plot
+                F2P_VS_rest(xs, n_counter, x_counter, h_counter - 1, f2p_axis_abs, f2p_axis_rel)
             h_counter += 1
         n_counter += 1
         x_counter += 1
+    plt.tight_layout()
+    plt.show()
 
 
 # in order to check the convergence of the relative resolution in the cedar method
 def toy_example(delta, max_val):
+    toy_fig, toy_axis = plt.subplots(2)
     xs_cedar_static, ys_cedar_static = cedar(delta, max_val)
     ys_cedar_relative = relative_resolution(xs_cedar_static, ys_cedar_static)
     toy_axis[1].plot(xs_cedar_static, ys_cedar_relative)
     toy_axis[1].set_title("relative")
     toy_axis[0].plot(xs_cedar_static, ys_cedar_static)
     toy_axis[0].set_title("abs")
+    plt.tight_layout()
+    plt.show()
 
-
-# set_plt_params()
-f2p_figure_abs, f2p_axis_abs = plt.subplots(2, 2)
-f2p_figure_rel, f2p_axis_rel = plt.subplots(2, 2)
-
-res_files_to_G()
-f2p_axis_abs[0, 0].legend(loc="upper left")
-f2p_axis_rel[0, 0].legend(loc="upper left")
-figure, axis = plt.subplots(2, 2)
-byte_slider = Slider(plt.axes([0.53, 0.95, 0.1, 0.04]), 'Exp', 2, 7, 3)
-byte_slider.valstep = 1
-byte_slider.on_changed(update_byte)
-
-# second figure
-fig, axs = plt.subplots(2)
-figure.subplots_adjust(0.25, 0.25)
-delta_slider = Slider(plt.axes([0.1, 0.95, 0.1, 0.04]), 'Delta', 0.01, 0.2, 0.1)
-delta_slider.valstep = 0.01
-max_value = Slider(plt.axes([0.32, 0.95, 0.1, 0.04]), 'Max Value', 255, 5000, 2048)
-max_value.valstep = 20
-plot_graph2(delta_slider.val, max_value.val)
-delta_slider.on_changed(delta_changed)
-max_value.on_changed(max_value_changed)
-# toy example
-toy_fig, toy_axis = plt.subplots(2)
-toy_example(0.5, 200)
-
-plot_graphs(8, 3)
