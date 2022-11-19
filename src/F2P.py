@@ -13,6 +13,7 @@ FONT_SIZE_SMALL = 5
 LEGEND_FONT_SIZE = 8
 LEGEND_FONT_SIZE_SMALL = 5
 UNIFORM_CHAIN_MIG_COST = 600
+DELTA_JUMPS = 0.01
 
 
 # Set the parameters of the plot (sizes of fonts, legend, ticks etc.).
@@ -65,12 +66,6 @@ def from_binary(arr, start, end):
             count_sum += pow(2, k)
         k += 1
     return count_sum
-
-
-def binary_to_val_static_sead(arr, exp_size):
-    mantissa = from_binary(arr, exp_size, len(arr) - 1)
-    exponent = from_binary(arr, 0, exp_size - 1)
-    return mantissa * 2 ** exponent
 
 
 def binary_to_val_dynamic_sead(arr, stage):
@@ -159,8 +154,8 @@ def min_delta(delta, max_val, cnt_size):
         i += 1
         shared_estimators.append(shared_estimators[i - 1] + different[i - 1])
     if i >= 2 ** cnt_size:
-        return delta + 0.01
-    return min_delta(delta - 0.01, max_val, cnt_size)
+        return delta + DELTA_JUMPS
+    return min_delta(delta - DELTA_JUMPS, max_val, cnt_size)
 
 
 def sort_and_erase_duplicates(xs):
@@ -279,8 +274,8 @@ def update_graph2(delta, max_val):
 def plot_graph2(delta, max_val):
     fig, axs = plt.subplots(2)
     Sliders.axs = axs
-    delta_slider = Slider(plt.axes([0.1, 0.95, 0.1, 0.04]), 'Delta', 0.01, 0.2, 0.1)
-    delta_slider.valstep = 0.01
+    delta_slider = Slider(plt.axes([0.1, 0.95, 0.1, 0.04]), 'Delta', DELTA_JUMPS, 0.2, 0.1)
+    delta_slider.valstep = DELTA_JUMPS
     delta_slider.on_changed(delta_changed)
     max_value = Slider(plt.axes([0.32, 0.95, 0.1, 0.04]), 'Max Value', 255, 5000, 2048)
     max_value.valstep = 20
