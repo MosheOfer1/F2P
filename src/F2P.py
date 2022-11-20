@@ -55,9 +55,10 @@ def relative_resolution(x_arr, y_abs):
 
 
 def dynamic_pre_calculate_stages(cnt_size):
-    stage = [1]
-    for i in range(1, cnt_size):
-        stage.append(stage[i - 1] + (2 ** (cnt_size - 1)))
+    expansion_array = [(2 ** exp) for exp in range(0, cnt_size - 1)]
+    stage = [0]
+    for j in range(1, cnt_size - 1):
+        stage.append(stage[j-1]+(expansion_array[j]*2**(cnt_size - 1 - j)))
     return stage
 
 
