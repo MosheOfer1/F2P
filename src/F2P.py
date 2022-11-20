@@ -37,13 +37,13 @@ def set_plt_params(size='large'):
                                            'ytick.labelsize': FONT_SIZE_SMALL,
                                            'axes.labelsize': FONT_SIZE_SMALL,
                                            'axes.titlesize': FONT_SIZE_SMALL, })
-#
-#
-# def pre_calculate_stages(exp, cnt_size):
-#     stage = [1]
-#     for i in range(1, 2 ** exp):
-#         stage.append(stage[i - 1] + 2 ** (cnt_size - exp))
-#     return stage
+
+
+def pre_calculate_stages(cnt_size):
+    stage = [1]
+    for i in range(1, cnt_size):
+        stage.append(stage[i - 1] + (2 ** (cnt_size-1)))
+    return stage
 
 
 def absolute_resolution(x_arr):
@@ -60,25 +60,38 @@ def relative_resolution(x_arr, y_abs):
     return y_arr
 
 
+# function that gets the number of bits,
+# Returns lists of
+# 1. The counted numbers
+# 2. The absolute resolution
+# 3. The relative resolution
+# In the Dynamic SEAD method
 def dynamic_sead(cnt_size):
-    # stage = pre_calculate_stages(cnt_size, cnt_size)
+    stage = pre_calculate_stages(cnt_size)
     xs_dynamic = []
-    for i in range((2 ** cnt_size) - 1):
+    for i in range((2 ** cnt_size) - 2):
         exp_size = 0
         bin_cntr = np.binary_repr(i, cnt_size)
+        # Counting the ones in the binary repr string
         for j in bin_cntr:
             if j == '0':
                 break
             else:
                 exp_size += 1
-        mantissa = int(bin_cntr[0:cnt_size - exp_size], 2)
-        xs_dynamic.append((mantissa * (2 ** exp_size))) #+ stage[exp_size])
-    xs_dynamic = list(set(xs_dynamic))
+        # Calculating the mantissa
+        mantissa = int(bin_cntr[exp_size + 1:cnt_size], 2)
+        xs_dynamic.append((mantissa * (2 ** exp_size)) + stage[exp_size])
     ys_dynamic_abs = absolute_resolution(xs_dynamic)
     ys_dynamic_relative = relative_resolution(xs_dynamic, ys_dynamic_abs)
     return xs_dynamic, ys_dynamic_abs, ys_dynamic_relative
 
 
+# function that gets the number of bits and, the number of Exponent bits,
+# Returns lists of
+# 1. the counted numbers
+# 2. the absolute resolution
+# 3. the relative resolution
+# In the Static SEAD method
 def static_sead(cnt_size, exp_size):
     xs_static = []
     for e in range(2 ** exp_size):
@@ -91,7 +104,7 @@ def static_sead(cnt_size, exp_size):
     return xs_static, ys_static_abs, ys_static_relative
 
 
-# function that computes the shared estimators and D by the CEDAR's formula
+# function that computes the shared estimators and D by using the CEDAR's formula
 def cedar(delta, max_val):
     shared_estimators = []
     different = []
@@ -106,6 +119,7 @@ def cedar(delta, max_val):
     return shared_estimators, different
 
 
+# What is the min number of exponent bites, that you need in order to count up to 'counted_num'?
 def ideal_exp_size(counted_num, cnt_size):
     for ideal_exp in range(1, cnt_size):
         if ((2 ** (cnt_size - ideal_exp)) - 1) * 2 ** ((2 ** ideal_exp) - 1) >= counted_num:
@@ -113,7 +127,7 @@ def ideal_exp_size(counted_num, cnt_size):
     return cnt_size
 
 
-# brute force method for finding the min delta in jumps of 0.01 each time by recursion
+# Brute force method for finding the min delta in jumps of 0.01 each time by recursion
 def min_delta(delta, max_val, cnt_size):
     shared_estimators = []
     different = []
@@ -205,7 +219,7 @@ def update_graph2(delta, max_val):
     axis = Sliders.axs
     xs_cedar_static, ys_cedar_static = cedar(delta, max_val)
     ys_cedar_relative = relative_resolution(xs_cedar_static, ys_cedar_static)
-    # find fair conditions to compare between the different methods
+    # Find fair conditions in order to compare between the different methods
     cnt_size_needed = math.ceil(math.log2(len(xs_cedar_static)))
     exp_size_needed = ideal_exp_size(xs_cedar_static[-1], cnt_size_needed)
 
@@ -301,7 +315,7 @@ def f2p(cnt_size, h_method):
     return xs_f2p_static, ys_f2p_static_abs, ys_f2p_static_relative
 
 
-# function to read the external files and make them lists
+# Function to read the external files and make them lists
 def res_files_to_G():
     f2p_figure_abs, f2p_axis_abs = plt.subplots(2, 2)
     f2p_figure_rel, f2p_axis_rel = plt.subplots(2, 2)
@@ -315,28 +329,28 @@ def res_files_to_G():
     plt.show()
 
 
-# in order to check the convergence of the relative resolution in the cedar method
-def toy_example(delta=0.5, max_val=200, cnt_size=8, exp_size=3, h_method=1):
+# In order to check the convergence of the relative resolution in the different methods
+def toy_example(delta=0.5, max_val=200, cnt_size=4, exp_size=1, h_method=1):
     toy_fig_cedar, toy_axis_cedar = plt.subplots(2)
     xs_cedar_static, ys_cedar_static = cedar(delta, max_val)
     ys_cedar_relative = relative_resolution(xs_cedar_static, ys_cedar_static)
-    toy_axis_cedar[0].plot(xs_cedar_static, ys_cedar_static)
+    toy_axis_cedar[0].plot(xs_cedar_static, ys_cedar_static, "-gD")
     toy_axis_cedar[0].set_title("CEDAR Absolute Resolution")
-    toy_axis_cedar[1].plot(xs_cedar_static, ys_cedar_relative)
+    toy_axis_cedar[1].plot(xs_cedar_static, ys_cedar_relative, "-gD")
     toy_axis_cedar[1].set_title("CEDAR Relative Resolution")
 
     toy_fig_sead, toy_axis_sead = plt.subplots(2)
     xs_sead_static, ys_sead_static_abs, ys_sead_static_relative = static_sead(cnt_size, exp_size)
-    toy_axis_sead[0].plot(xs_sead_static, ys_sead_static_abs)
+    toy_axis_sead[0].plot(xs_sead_static, ys_sead_static_abs, "-gD")
     toy_axis_sead[0].set_title("SEAD Absolute Resolution")
-    toy_axis_sead[1].plot(xs_sead_static, ys_sead_static_relative)
+    toy_axis_sead[1].plot(xs_sead_static, ys_sead_static_relative, "-gD")
     toy_axis_sead[1].set_title("SEAD Relative Resolution")
 
     toy_fig_f2p, toy_axis_f2p = plt.subplots(2)
-    xs_f2p_static, ys_f2p_static_abs, ys_f2p_static_relative = f2p(cnt_size, h_method)
-    toy_axis_f2p[0].plot(xs_f2p_static, ys_f2p_static_abs)
+    xs_f2p_static, ys_f2p_static_abs, ys_f2p_static_relative = f2p(8, h_method)
+    toy_axis_f2p[0].plot(xs_f2p_static, ys_f2p_static_abs, "-gD", markevery=MARKERS_GAP)
     toy_axis_f2p[0].set_title("F2P Absolute Resolution")
-    toy_axis_f2p[1].plot(xs_f2p_static, ys_f2p_static_relative)
+    toy_axis_f2p[1].plot(xs_f2p_static, ys_f2p_static_relative, "-gD", markevery=MARKERS_GAP)
     toy_axis_f2p[1].set_title("F2P Relative Resolution")
     plt.tight_layout()
     plt.show()
