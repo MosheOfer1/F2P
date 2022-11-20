@@ -16,6 +16,7 @@ LEGEND_FONT_SIZE = 8
 LEGEND_FONT_SIZE_SMALL = 5
 UNIFORM_CHAIN_MIG_COST = 600
 DELTA_JUMPS = 0.01
+CNT_SIZE = 8
 
 
 # Set the parameters of the plot (sizes of fonts, legend, ticks etc.).
@@ -39,13 +40,6 @@ def set_plt_params(size='large'):
                                            'axes.titlesize': FONT_SIZE_SMALL, })
 
 
-def pre_calculate_stages(cnt_size):
-    stage = [1]
-    for i in range(1, cnt_size):
-        stage.append(stage[i - 1] + (2 ** (cnt_size-1)))
-    return stage
-
-
 def absolute_resolution(x_arr):
     y_arr = [1]
     for c in range(1, len(x_arr)):
@@ -60,24 +54,28 @@ def relative_resolution(x_arr, y_abs):
     return y_arr
 
 
-# function that gets the number of bits,
-# Returns lists of
-# 1. The counted numbers
-# 2. The absolute resolution
-# 3. The relative resolution
-# In the Dynamic SEAD method
+def dynamic_pre_calculate_stages(cnt_size):
+    stage = [1]
+    for i in range(1, cnt_size):
+        stage.append(stage[i - 1] + (2 ** (cnt_size - 1)))
+    return stage
+
+
 def dynamic_sead(cnt_size):
-    stage = pre_calculate_stages(cnt_size)
+    """
+    function that gets the number of bits,
+    Returns lists of
+    1. The counted numbers
+    2. The absolute resolution
+    3. The relative resolution
+    in the Dynamic SEAD method
+    """
+    stage = dynamic_pre_calculate_stages(cnt_size)
     xs_dynamic = []
     for i in range((2 ** cnt_size) - 2):
-        exp_size = 0
         bin_cntr = np.binary_repr(i, cnt_size)
-        # Counting the ones in the binary repr string
-        for j in bin_cntr:
-            if j == '0':
-                break
-            else:
-                exp_size += 1
+        # Counting the ones in the binary repr string, by looking fot the first 0 index from the left
+        exp_size = bin_cntr.index('0')
         # Calculating the mantissa
         mantissa = int(bin_cntr[exp_size + 1:cnt_size], 2)
         xs_dynamic.append((mantissa * (2 ** exp_size)) + stage[exp_size])
@@ -86,22 +84,37 @@ def dynamic_sead(cnt_size):
     return xs_dynamic, ys_dynamic_abs, ys_dynamic_relative
 
 
-# function that gets the number of bits and, the number of Exponent bits,
-# Returns lists of
-# 1. the counted numbers
-# 2. the absolute resolution
-# 3. the relative resolution
-# In the Static SEAD method
+def static_pre_calculate_stages(cnt_size, exp_size):
+    expansion_array = [(2 ** exp) for exp in range(0, 2**exp_size)]
+    expansion_array_sum = [1]
+    for i in range(1, len(expansion_array)):
+        expansion_array_sum.append(expansion_array_sum[i - 1] + expansion_array[i])
+    stage = [((2**(cnt_size-exp_size)) * expansion_array_sum[j]) for j in range(0, len(expansion_array_sum)-1)]
+    stage.insert(0, 0)
+    return stage
+
+
 def static_sead(cnt_size, exp_size):
+    """
+     function that gets the number of bits and, the number of Exponent bits,
+     Returns lists of
+    1. the counted numbers
+    2. the absolute resolution
+    3. the relative resolution
+    in the Static SEAD method
+    """
     xs_static = []
+    stage = static_pre_calculate_stages(cnt_size, exp_size)
     for e in range(2 ** exp_size):
         for m in range(2 ** (cnt_size - exp_size)):
-            xs_static.append(m * 2 ** e)
-    xs_static = list(set(xs_static))
-    xs_static.sort()
+            xs_static.append((m * 2 ** e) + stage[e])
     ys_static_abs = absolute_resolution(xs_static)
     ys_static_relative = relative_resolution(xs_static, ys_static_abs)
     return xs_static, ys_static_abs, ys_static_relative
+
+
+# This is the CEDAR formula to calculate the diff given the delta and the sum of the previous diffs
+calc_diff = lambda delta, sum_of_prev_diffs: (1 + 2 * delta ** 2 * sum_of_prev_diffs) / (1 - delta ** 2)
 
 
 # function that computes the shared estimators and D by using the CEDAR's formula
@@ -111,39 +124,41 @@ def cedar(delta, max_val):
     shared_estimators.append(0)
     i = 0
     while shared_estimators[i] < max_val:
-        # the formula
-        different.append((1 + 2 * delta ** 2 * shared_estimators[i]) / (1 - delta ** 2))
+        # using the cedar's formula
+        different.append(calc_diff(delta=delta, sum_of_prev_diffs=shared_estimators[i]))
         i += 1
         shared_estimators.append(shared_estimators[i - 1] + different[i - 1])
     shared_estimators.pop()
     return shared_estimators, different
 
 
-# What is the min number of exponent bites, that you need in order to count up to 'counted_num'?
 def ideal_exp_size(counted_num, cnt_size):
+    """
+    Calculate the min number of exponent bites, that you need in order to count up to 'counted_num',
+    given the number of bites and the counted number
+    raise value error if the counted num can't be reached
+    """
     for ideal_exp in range(1, cnt_size):
         if ((2 ** (cnt_size - ideal_exp)) - 1) * 2 ** ((2 ** ideal_exp) - 1) >= counted_num:
             return ideal_exp
-    return cnt_size
+    raise ValueError('Counted num can not be reached')
 
 
-# Brute force method for finding the min delta in jumps of 0.01 each time by recursion
-def min_delta(delta, max_val, cnt_size):
-    shared_estimators = []
-    different = []
-    shared_estimators.append(0)
-    i = 0
-    while shared_estimators[i] < max_val:
-        different.append((1 + 2 * delta ** 2 * shared_estimators[i]) / (1 - delta ** 2))
-        i += 1
-        shared_estimators.append(shared_estimators[i - 1] + different[i - 1])
-    if i >= 2 ** cnt_size:
-        return delta + DELTA_JUMPS
-    return min_delta(delta - DELTA_JUMPS, max_val, cnt_size)
+def min_delta(init_delta, max_val, cnt_size, delta_jumps=DELTA_JUMPS):
+    """
+    calc the minimal delta that can be obtained for CEDAR, given the max_val and the cnt size
+    This function assumes that the initial delta is suitable for the cnt_size and for the max value
+    """
+    for delta in np.arange(init_delta, 0, -delta_jumps):
+        cur_val = 0
+        for i in range(2 ** cnt_size):
+            cur_val += calc_diff(delta=delta, sum_of_prev_diffs=cur_val)
+        if cur_val < max_val:
+            return round(delta + delta_jumps, 3)
 
 
 def update_byte(val):
-    update_graph1(8, val)
+    update_graph1(CNT_SIZE, val)
 
 
 # plot the static and dynamic sead to one graph
@@ -272,7 +287,7 @@ def plot_graph2(delta, max_val):
 def f2p_VS_rest(axis, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_axis_rel):
     xs_f2p, ys_f2p_abs, ys_f2p_relative = axis
     # for fare comparison with CEDAR we need to check the min delta
-    min_del = min_delta(0.1, xs_f2p[-1], cnt_size)
+    min_del = min_delta(0.1, xs_f2p[-1], cnt_size, 0.005)
     # for fare comparison with CEDAR we need to check the min exp
     min_exp = ideal_exp_size(xs_f2p[-1], cnt_size)
     # compare to SEAD method and CEDAR to F2P
@@ -280,7 +295,7 @@ def f2p_VS_rest(axis, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_axis_rel
     xs_cedar_static, ys_cedar_static = cedar(min_del, xs_f2p[-1])
     ys_cedar_relative = relative_resolution(xs_cedar_static, ys_cedar_static)
     f2p_axis_abs[x_counter, y_counter].set_title(
-        str(cnt_size) + " bits, " + str(round(min_del, 2)) + " Delta, " + str(min_exp) + " exp, " + "max " + str(
+        str(cnt_size) + " bits, " + str(round(min_del, 3)) + " Delta, " + str(min_exp) + " exp, " + "max " + str(
             xs_f2p[-1]))
     f2p_axis_abs[x_counter, y_counter].plot(xs_cedar_static, ys_cedar_static, "-b", label="Static cedar")
     f2p_axis_abs[x_counter, y_counter].plot(xs_sead_static, ys_sead_static_abs, "-r", label="Static SEAD")
@@ -290,7 +305,7 @@ def f2p_VS_rest(axis, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_axis_rel
     plt.tight_layout()
 
     f2p_axis_rel[x_counter, y_counter].set_title(
-        str(cnt_size) + " bits, " + str(round(min_del, 2)) + " Delta, " + str(min_exp) + " exp, " + "max " + str(
+        str(cnt_size) + " bits, " + str(round(min_del, 3)) + " Delta, " + str(min_exp) + " exp, " + "max " + str(
             xs_f2p[-1]))
     f2p_axis_rel[x_counter, y_counter].plot(xs_cedar_static, ys_cedar_relative, "-b", label="Static cedar")
     f2p_axis_rel[x_counter, y_counter].plot(xs_sead_static, ys_sead_static_relative, "-r", label="Static SEAD")
@@ -347,7 +362,7 @@ def toy_example(delta=0.5, max_val=200, cnt_size=4, exp_size=1, h_method=1):
     toy_axis_sead[1].set_title("SEAD Relative Resolution")
 
     toy_fig_f2p, toy_axis_f2p = plt.subplots(2)
-    xs_f2p_static, ys_f2p_static_abs, ys_f2p_static_relative = f2p(8, h_method)
+    xs_f2p_static, ys_f2p_static_abs, ys_f2p_static_relative = f2p(CNT_SIZE, h_method)
     toy_axis_f2p[0].plot(xs_f2p_static, ys_f2p_static_abs, "-gD", markevery=MARKERS_GAP)
     toy_axis_f2p[0].set_title("F2P Absolute Resolution")
     toy_axis_f2p[1].plot(xs_f2p_static, ys_f2p_static_relative, "-gD", markevery=MARKERS_GAP)
