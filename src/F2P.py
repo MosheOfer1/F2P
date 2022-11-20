@@ -2,6 +2,7 @@ import math
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy
+import numpy as np
 from matplotlib.widgets import Slider
 
 MARKER_SIZE = 16
@@ -22,27 +23,27 @@ DELTA_JUMPS = 0.01
 def set_plt_params(size='large'):
     if size == 'large':
         matplotlib.rcParams.update_graph2({'font.size': FONT_SIZE,
-                                    'legend.fontsize': LEGEND_FONT_SIZE,
-                                    'xtick.labelsize': FONT_SIZE,
-                                    'ytick.labelsize': FONT_SIZE,
-                                    'axes.labelsize': FONT_SIZE,
-                                    'axes.titlesize': FONT_SIZE,
-                                    'lines.marker': 'x',
-                                    'lines.markeredgecolor': 'black'})
+                                           'legend.fontsize': LEGEND_FONT_SIZE,
+                                           'xtick.labelsize': FONT_SIZE,
+                                           'ytick.labelsize': FONT_SIZE,
+                                           'axes.labelsize': FONT_SIZE,
+                                           'axes.titlesize': FONT_SIZE,
+                                           'lines.marker': 'x',
+                                           'lines.markeredgecolor': 'black'})
     else:
         matplotlib.rcParams.update_graph2({'font.size': FONT_SIZE_SMALL,
-                                    'legend.fontsize': LEGEND_FONT_SIZE_SMALL,
-                                    'xtick.labelsize': FONT_SIZE_SMALL,
-                                    'ytick.labelsize': FONT_SIZE_SMALL,
-                                    'axes.labelsize': FONT_SIZE_SMALL,
-                                    'axes.titlesize': FONT_SIZE_SMALL, })
-
-
-def pre_calculate_stages(exp, cnt_size):
-    stage = [1]
-    for i in range(1, 2 ** exp):
-        stage.append(stage[i - 1] + 2 ** (cnt_size - exp))
-    return stage
+                                           'legend.fontsize': LEGEND_FONT_SIZE_SMALL,
+                                           'xtick.labelsize': FONT_SIZE_SMALL,
+                                           'ytick.labelsize': FONT_SIZE_SMALL,
+                                           'axes.labelsize': FONT_SIZE_SMALL,
+                                           'axes.titlesize': FONT_SIZE_SMALL, })
+#
+#
+# def pre_calculate_stages(exp, cnt_size):
+#     stage = [1]
+#     for i in range(1, 2 ** exp):
+#         stage.append(stage[i - 1] + 2 ** (cnt_size - exp))
+#     return stage
 
 
 def absolute_resolution(x_arr):
@@ -59,47 +60,19 @@ def relative_resolution(x_arr, y_abs):
     return y_arr
 
 
-def from_binary(arr, start, end):
-    k = 0
-    count_sum = 0
-    for i in range(start, end + 1):
-        if arr[i]:
-            count_sum += pow(2, k)
-        k += 1
-    return count_sum
-
-
-def binary_to_val_dynamic_sead(arr, stage):
-    exp_d = 0
-    while arr[exp_d]:
-        exp_d += 1
-        if exp_d == 8:
-            return 1
-    mantissa = from_binary(arr, exp_d + 1, len(arr) - 1)
-    return (mantissa * (2 ** exp_d)) + stage[exp_d]
-
-
-def dynamic_sead(cnt_size, exp_size):
-    bits_arr = numpy.zeros(cnt_size, bool)
+def dynamic_sead(cnt_size):
+    # stage = pre_calculate_stages(cnt_size, cnt_size)
     xs_dynamic = []
-    finish = True
-    i = 0
-    stage = pre_calculate_stages(exp_size, cnt_size)
-    # filing the dynamic array
-    while finish:
-        xs_dynamic.append(binary_to_val_dynamic_sead(bits_arr, stage))
-        while True:
-            i += 1
-            if not bits_arr[i - 1]:
+    for i in range((2 ** cnt_size) - 1):
+        exp_size = 0
+        bin_cntr = np.binary_repr(i, cnt_size)
+        for j in bin_cntr:
+            if j == '0':
                 break
-            elif i == cnt_size:
-                finish = False
-                break
-        i -= 1
-        bits_arr[i] = True
-        while i > 0:
-            i -= 1
-            bits_arr[i] = False
+            else:
+                exp_size += 1
+        mantissa = int(bin_cntr[0:cnt_size - exp_size], 2)
+        xs_dynamic.append((mantissa * (2 ** exp_size))) #+ stage[exp_size])
     xs_dynamic = list(set(xs_dynamic))
     ys_dynamic_abs = absolute_resolution(xs_dynamic)
     ys_dynamic_relative = relative_resolution(xs_dynamic, ys_dynamic_abs)
@@ -163,7 +136,7 @@ def update_byte(val):
 def plot_graphs(cnt_size, exp_size):
     figure, axis = plt.subplots(2, 2)
     Sliders.axis = axis
-    byte_slider = Slider(plt.axes([0.53, 0.95, 0.1, 0.04]), 'Exp', 2, 7, 3)
+    byte_slider = Slider(plt.axes([0.53, 0.95, 0.1, 0.04]), 'Exp', 3, 6, 3)
     byte_slider.valstep = 1
     byte_slider.on_changed(update_byte)
     update_graph1(cnt_size, exp_size)
@@ -174,7 +147,9 @@ def plot_graphs(cnt_size, exp_size):
 def update_graph1(cnt_size, exp_size):
     axis = Sliders.axis
     xs_static, ys_static_abs, ys_static_relative = static_sead(cnt_size, exp_size)
-    xs_dynamic, ys_dynamic_abs, ys_dynamic_relative = dynamic_sead(cnt_size, exp_size)
+    # xs_dynamic, ys_dynamic_abs, ys_dynamic_relative = dynamic_sead(cnt_size, exp_size)
+    xs_dynamic, ys_dynamic_abs, ys_dynamic_relative = dynamic_sead(cnt_size)
+
     axis[0, 0].clear()
     # axis[0, 0] = plt.gca()
     # axis[0, 0].grid(True)
@@ -186,7 +161,8 @@ def update_graph1(cnt_size, exp_size):
     axis[0, 0].set_ylim(0)
 
     axis[1, 0].clear()
-    axis[1, 0].plot(xs_static, ys_static_relative, 'C3', marker='v', markevery=MARKERS_GAP, linestyle='dashed', mfc='none')
+    axis[1, 0].plot(xs_static, ys_static_relative, 'C3', marker='v', markevery=MARKERS_GAP, linestyle='dashed',
+                    mfc='none')
     axis[1, 0].set_xlabel('Real Value')
     axis[1, 0].set_ylabel('Relative Resolution')
     axis[1, 0].set_ylim([0, 0.15])
@@ -201,7 +177,8 @@ def update_graph1(cnt_size, exp_size):
     axis[0, 1].set_ylim(0)
 
     axis[1, 1].clear()
-    axis[1, 1].plot(xs_dynamic, ys_dynamic_relative, 'C3', marker='v', markevery=MARKERS_GAP, linestyle='dashed', mfc='none')
+    axis[1, 1].plot(xs_dynamic, ys_dynamic_relative, 'C3', marker='v', markevery=MARKERS_GAP, linestyle='dashed',
+                    mfc='none')
     axis[1, 1].set_xlabel('Real Value')
     axis[1, 1].set_ylabel('Relative Resolution')
     axis[1, 1].set_ylim([0, 0.15])
@@ -210,9 +187,9 @@ def update_graph1(cnt_size, exp_size):
 
 class Sliders:
     axis = None
+    axs = None
     CURRENT_DELTA = 0.1
     CURRENT_MAX_VAL = 2048
-    axs = []
 
 
 def delta_changed(val):
@@ -225,7 +202,7 @@ def max_value_changed(val):
 
 
 def update_graph2(delta, max_val):
-    axs = Sliders.axs
+    axis = Sliders.axs
     xs_cedar_static, ys_cedar_static = cedar(delta, max_val)
     ys_cedar_relative = relative_resolution(xs_cedar_static, ys_cedar_static)
     # find fair conditions to compare between the different methods
@@ -233,28 +210,34 @@ def update_graph2(delta, max_val):
     exp_size_needed = ideal_exp_size(xs_cedar_static[-1], cnt_size_needed)
 
     xs_sead_static, ys_sead_static_abs, ys_sead_static_relative = static_sead(cnt_size_needed, exp_size_needed)
-    xs_sead_dynamic, ys_sead_dynamic_abs, ys_sead_dynamic_relative = dynamic_sead(cnt_size_needed, exp_size_needed)
+    xs_sead_dynamic, ys_sead_dynamic_abs, ys_sead_dynamic_relative = dynamic_sead(cnt_size_needed)
 
-    axs[0].clear()
-    axs[0].plot(xs_cedar_static, ys_cedar_static, "-b", label="Static cedar", marker='^', markevery=MARKERS_GAP, linestyle='dashdot')
-    axs[0].plot(xs_sead_static, ys_sead_static_abs, "-r", label="Static SEAD", marker='^', markevery=MARKERS_GAP, linestyle='dashed')
-    axs[0].plot(xs_sead_dynamic, ys_sead_dynamic_abs, "-g", label="Dynamic SEAD", marker='v', markevery=MARKERS_GAP, mfc='none')
-    axs[0].legend(loc="upper left")
-    axs[0].set_title(str(exp_size_needed) + " Exp bites and " + str(cnt_size_needed) +
-                     " bits need in order to count up to " + str(math.ceil(xs_cedar_static[-1])) + " ")
-    axs[0].set_xlabel('Real Value')
-    axs[0].set_ylabel('Absolute Resolution')
-    axs[0].set_xlim([0, xs_cedar_static[-1]])
-    axs[0].set_ylim(0, 120)
+    axis[0].clear()
+    axis[0].plot(xs_cedar_static, ys_cedar_static, "-b", label="Static cedar", marker='^', markevery=MARKERS_GAP,
+                 linestyle='dashdot')
+    axis[0].plot(xs_sead_static, ys_sead_static_abs, "-r", label="Static SEAD", marker='^', markevery=MARKERS_GAP,
+                 linestyle='dashed')
+    axis[0].plot(xs_sead_dynamic, ys_sead_dynamic_abs, "-g", label="Dynamic SEAD", marker='v', markevery=MARKERS_GAP,
+                 mfc='none')
+    axis[0].legend(loc="upper left")
+    axis[0].set_title(str(exp_size_needed) + " Exp bites and " + str(cnt_size_needed) +
+                      " bits need in order to count up to " + str(math.ceil(xs_cedar_static[-1])) + " ")
+    axis[0].set_xlabel('Real Value')
+    axis[0].set_ylabel('Absolute Resolution')
+    axis[0].set_xlim([0, xs_cedar_static[-1]])
+    axis[0].set_ylim(0, 120)
 
-    axs[1].clear()
-    axs[1].plot(xs_cedar_static, ys_cedar_relative, "-b", label="Static cedar", marker='^', markevery=MARKERS_GAP, linestyle='dashdot')
-    axs[1].plot(xs_sead_static, ys_sead_static_relative, "-r", label="Static SEAD", marker='^', markevery=MARKERS_GAP, linestyle='dashed')
-    axs[1].plot(xs_sead_dynamic, ys_sead_dynamic_relative, "-g", label="Dynamic SEAD", marker='v', markevery=MARKERS_GAP, mfc='none')
-    axs[1].set_xlim([10, xs_cedar_static[-1]])
-    axs[1].set_ylim(0, 0.18)
-    axs[1].set_xlabel('Real Value')
-    axs[1].set_ylabel('Relative Resolution')
+    axis[1].clear()
+    axis[1].plot(xs_cedar_static, ys_cedar_relative, "-b", label="Static cedar", marker='^', markevery=MARKERS_GAP,
+                 linestyle='dashdot')
+    axis[1].plot(xs_sead_static, ys_sead_static_relative, "-r", label="Static SEAD", marker='^', markevery=MARKERS_GAP,
+                 linestyle='dashed')
+    axis[1].plot(xs_sead_dynamic, ys_sead_dynamic_relative, "-g", label="Dynamic SEAD", marker='v',
+                 markevery=MARKERS_GAP, mfc='none')
+    axis[1].set_xlim([10, xs_cedar_static[-1]])
+    axis[1].set_ylim(0, 0.18)
+    axis[1].set_xlabel('Real Value')
+    axis[1].set_ylabel('Relative Resolution')
 
 
 # plot the CEDAR and the SEAD at the same graph
@@ -299,9 +282,9 @@ def f2p_VS_rest(axis, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_axis_rel
     f2p_axis_rel[x_counter, y_counter].plot(xs_sead_static, ys_sead_static_relative, "-r", label="Static SEAD")
     f2p_axis_rel[x_counter, y_counter].plot(xs_f2p, ys_f2p_relative, "-gD", label="F2P", markevery=0.2)
     f2p_axis_rel[x_counter, y_counter].set_xlim([0, xs_cedar_static[-1]])
-    f2p_axis_rel[x_counter, y_counter]\
-        .set_ylim([0, max(ys_sead_static_relative[y]*1.1 for y in range((int)(len(ys_sead_static_relative) / 2),
-                                                                        len(ys_sead_static_relative)))])
+    f2p_axis_rel[x_counter, y_counter] \
+        .set_ylim([0, max(ys_sead_static_relative[y] * 1.1 for y in range((int)(len(ys_sead_static_relative) / 2),
+                                                                          len(ys_sead_static_relative)))])
     f2p_axis_abs[0, 0].legend(loc="upper left")
     f2p_axis_rel[0, 0].legend(loc="upper left")
 
@@ -357,4 +340,3 @@ def toy_example(delta=0.5, max_val=200, cnt_size=8, exp_size=3, h_method=1):
     toy_axis_f2p[1].set_title("F2P Relative Resolution")
     plt.tight_layout()
     plt.show()
-
