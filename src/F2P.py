@@ -1,7 +1,6 @@
 import math
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy
 import numpy as np
 from matplotlib.widgets import Slider
 
@@ -58,7 +57,7 @@ def dynamic_pre_calculate_stages(cnt_size):
     expansion_array = [(2 ** exp) for exp in range(0, cnt_size - 1)]
     stage = [0]
     for j in range(1, cnt_size - 1):
-        stage.append(stage[j-1]+(expansion_array[j]*2**(cnt_size - 1 - j)))
+        stage.append(stage[j - 1] + (expansion_array[j] * 2 ** (cnt_size - 1 - j)))
     return stage
 
 
@@ -86,11 +85,11 @@ def dynamic_sead(cnt_size):
 
 
 def static_pre_calculate_stages(cnt_size, exp_size):
-    expansion_array = [(2 ** exp) for exp in range(0, 2**exp_size)]
+    expansion_array = [(2 ** exp) for exp in range(0, 2 ** exp_size)]
     expansion_array_sum = [1]
     for i in range(1, len(expansion_array)):
         expansion_array_sum.append(expansion_array_sum[i - 1] + expansion_array[i])
-    stage = [((2**(cnt_size-exp_size)) * expansion_array_sum[j]) for j in range(0, len(expansion_array_sum)-1)]
+    stage = [((2 ** (cnt_size - exp_size)) * expansion_array_sum[j]) for j in range(0, len(expansion_array_sum) - 1)]
     stage.insert(0, 0)
     return stage
 
@@ -142,7 +141,8 @@ def ideal_exp_size(counted_num, cnt_size):
     for ideal_exp in range(1, cnt_size):
         if ((2 ** (cnt_size - ideal_exp)) - 1) * 2 ** ((2 ** ideal_exp) - 1) >= counted_num:
             return ideal_exp
-    raise ValueError('Counted num can not be reached')
+        # can't be reached
+    return cnt_size - 1
 
 
 def min_delta(init_delta, max_val, cnt_size, delta_jumps=DELTA_JUMPS):
@@ -285,7 +285,7 @@ def plot_graph2(delta, max_val):
     plt.show()
 
 
-def f2p_VS_rest(axis, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_axis_rel):
+def f2p_VS_rest(axis, method, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_axis_rel):
     xs_f2p, ys_f2p_abs, ys_f2p_relative = axis
     # for fare comparison with CEDAR we need to check the min delta
     min_del = min_delta(0.1, xs_f2p[-1], cnt_size, 0.005)
@@ -295,33 +295,40 @@ def f2p_VS_rest(axis, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_axis_rel
     xs_sead_static, ys_sead_static_abs, ys_sead_static_relative = static_sead(cnt_size, min_exp)
     xs_cedar_static, ys_cedar_static = cedar(min_del, xs_f2p[-1])
     ys_cedar_relative = relative_resolution(xs_cedar_static, ys_cedar_static)
-    f2p_axis_abs[x_counter, y_counter].set_title(
-        str(cnt_size) + " bits, " + str(round(min_del, 3)) + " Delta, " + str(min_exp) + " exp, " + "max " + str(
-            xs_f2p[-1]))
+    f2p_axis_abs[x_counter, y_counter].set_title("F" + str(method) + "P " +
+        str(cnt_size) + " bits, " + str(round(min_del, 3)) + " Delta, " + str(
+        min_exp) + " exp, " + "max " + str(
+        xs_f2p[-1]))
     f2p_axis_abs[x_counter, y_counter].plot(xs_cedar_static, ys_cedar_static, "-b", label="Static cedar")
     f2p_axis_abs[x_counter, y_counter].plot(xs_sead_static, ys_sead_static_abs, "-r", label="Static SEAD")
-    f2p_axis_abs[x_counter, y_counter].plot(xs_f2p, ys_f2p_abs, "-gD", label="F2P", markevery=0.2)
-    f2p_axis_abs[x_counter, y_counter].set_xlim([0, xs_cedar_static[-1]])
+    f2p_axis_abs[x_counter, y_counter].plot(xs_f2p, ys_f2p_abs, "-gD", label="F" + str(method) + "P", markevery=MARKERS_GAP)
+    f2p_axis_abs[x_counter, y_counter].set_xlim([16, xs_cedar_static[-1]])
     f2p_axis_abs[x_counter, y_counter].set_ylim([0, ys_f2p_abs[-1] * 5])
+    f2p_axis_abs[x_counter, y_counter].set_xlabel('Real Value')
+    f2p_axis_abs[x_counter, y_counter].set_ylabel('Absolute Resolution')
     plt.tight_layout()
 
-    f2p_axis_rel[x_counter, y_counter].set_title(
+    f2p_axis_rel[x_counter, y_counter].set_title("F" + str(method) + "P " +
         str(cnt_size) + " bits, " + str(round(min_del, 3)) + " Delta, " + str(min_exp) + " exp, " + "max " + str(
             xs_f2p[-1]))
     f2p_axis_rel[x_counter, y_counter].plot(xs_cedar_static, ys_cedar_relative, "-b", label="Static cedar")
     f2p_axis_rel[x_counter, y_counter].plot(xs_sead_static, ys_sead_static_relative, "-r", label="Static SEAD")
-    f2p_axis_rel[x_counter, y_counter].plot(xs_f2p, ys_f2p_relative, "-gD", label="F2P", markevery=0.2)
-    f2p_axis_rel[x_counter, y_counter].set_xlim([0, xs_cedar_static[-1]])
+    f2p_axis_rel[x_counter, y_counter].plot(xs_f2p, ys_f2p_relative, "-gD", label="F"+ str(method)+"P", markevery=MARKERS_GAP)
+    f2p_axis_rel[x_counter, y_counter].set_xlim([128, xs_cedar_static[-1]])
+    f2p_axis_rel[x_counter, y_counter].set_xscale("log")
+
     f2p_axis_rel[x_counter, y_counter] \
         .set_ylim([0, max(ys_sead_static_relative[y] * 1.1 for y in range((int)(len(ys_sead_static_relative) / 2),
                                                                           len(ys_sead_static_relative)))])
-    f2p_axis_abs[0, 0].legend(loc="upper left")
-    f2p_axis_rel[0, 0].legend(loc="upper left")
+    f2p_axis_rel[x_counter, y_counter].set_xlabel('Real Value')
+    f2p_axis_rel[x_counter, y_counter].set_ylabel('Relative Resolution')
+    f2p_axis_abs[x_counter, y_counter].legend(loc='upper left')
+    f2p_axis_rel[x_counter, y_counter].legend(loc='lower left')
 
 
-def f2p(cnt_size, h_method):
+def f2p(method, cnt_size, h_method):
     xs_f2p_static = []
-    with open('res/F2P_n' + str(cnt_size) + '_h' + str(h_method) + '.res') as fp:
+    with open('res/F' + str(method) + 'P_n' + str(cnt_size) + '_h' + str(h_method) + '.res') as fp:
         lines = fp.readlines()
         for line in lines:
             xs_f2p_static.append(int(line.split("=", 1)[1]))
@@ -332,17 +339,34 @@ def f2p(cnt_size, h_method):
 
 
 # Function to read the external files and make them lists
-def res_files_to_G():
+def read_f2p_files_to_4graphs(method: list, cnt_size: list, h_method: list):
     f2p_figure_abs, f2p_axis_abs = plt.subplots(2, 2)
     f2p_figure_rel, f2p_axis_rel = plt.subplots(2, 2)
+
     # read the F2P information from external files and plot them in two different figures
-    counter = 0
-    for n in range(13, 15):
-        for h in range(1, 3):
-            f2p_VS_rest(f2p(n, h), n, counter, h - 1, f2p_axis_abs, f2p_axis_rel)
-        counter += 1
+    for i in range(0, 4):
+        f2p_VS_rest(f2p(method[i], cnt_size[i], h_method[i]), method[i], cnt_size[i], i % 2, (int)(i / 2), f2p_axis_abs,
+                    f2p_axis_rel)
     plt.tight_layout()
     plt.show()
+
+
+def read_one_file_to_graph(method, cnt_size, h_method):
+    f2p_figure_abs, f2p_axis_abs = plt.subplots(2, 2)
+    f2p_figure_rel, f2p_axis_rel = plt.subplots(2, 2)
+    f2p_VS_rest(f2p(method, cnt_size, h_method), cnt_size, 0, 0, f2p_axis_abs, f2p_axis_rel)
+    plt.tight_layout()
+    plt.show()
+
+
+def generate_txt_file(cnt_size, max_val, method="cedar"):
+    newfile = open(str(method)+"_up_to_"+str(max_val)+"_using_"+str(cnt_size)+"_bites"+".txt", "w")
+    min_del = min_delta(0.1, max_val, cnt_size)
+    newfile.write("The min Delta: "+str(min_del) + '\n')
+    xs = cedar(min_del, max_val)
+    for x in xs[0]:
+        newfile.write(str(x)+'\n')
+    newfile.close()
 
 
 # In order to check the convergence of the relative resolution in the different methods
