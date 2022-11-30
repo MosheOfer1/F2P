@@ -48,8 +48,8 @@ def absolute_resolution(x_arr):
 
 def relative_resolution(x_arr, y_abs):
     y_arr = [1]
-    for c in range(0, len(x_arr) - 1):
-        y_arr.append(y_abs[c] / x_arr[c + 1])
+    for c in range(1, len(x_arr)):
+        y_arr.append(y_abs[c] / x_arr[c])
     return y_arr
 
 
@@ -91,7 +91,7 @@ def static_pre_calculate_stages(cnt_size, exp_size):
         expansion_array_sum.append(expansion_array_sum[i - 1] + expansion_array[i])
     stage = [((2 ** (cnt_size - exp_size)) * expansion_array_sum[j]) for j in range(0, len(expansion_array_sum) - 1)]
     stage.insert(0, 0)
-    return stage
+    return stage, expansion_array
 
 
 def static_sead(cnt_size, exp_size):
@@ -104,7 +104,7 @@ def static_sead(cnt_size, exp_size):
     in the Static SEAD method
     """
     xs_static = []
-    stage = static_pre_calculate_stages(cnt_size, exp_size)
+    stage, expansion_array = static_pre_calculate_stages(cnt_size, exp_size)
     for e in range(2 ** exp_size):
         for m in range(2 ** (cnt_size - exp_size)):
             xs_static.append((m * 2 ** e) + stage[e])
@@ -304,7 +304,7 @@ def f2p_VS_rest(axis, method, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_
     f2p_axis_abs[x_counter, y_counter].plot(xs_f2p, ys_f2p_abs, "-gD", label="F" + str(method) + "P", markevery=MARKERS_GAP)
     f2p_axis_abs[x_counter, y_counter].set_xlim([16, xs_cedar_static[-1]])
     f2p_axis_abs[x_counter, y_counter].set_ylim([0, ys_f2p_abs[-1] * 5])
-    f2p_axis_abs[x_counter, y_counter].set_xlabel('Real Value')
+    f2p_axis_abs[x_counter, y_counter].set_xlabel('Counted Value')
     f2p_axis_abs[x_counter, y_counter].set_ylabel('Absolute Resolution')
     plt.tight_layout()
 
@@ -315,15 +315,16 @@ def f2p_VS_rest(axis, method, cnt_size, x_counter, y_counter, f2p_axis_abs, f2p_
     f2p_axis_rel[x_counter, y_counter].plot(xs_sead_static, ys_sead_static_relative, "-r", label="Static SEAD")
     f2p_axis_rel[x_counter, y_counter].plot(xs_f2p, ys_f2p_relative, "-gD", label="F"+ str(method)+"P", markevery=MARKERS_GAP)
     f2p_axis_rel[x_counter, y_counter].set_xlim([128, xs_cedar_static[-1]])
-    f2p_axis_rel[x_counter, y_counter].set_xscale("log")
+    f2p_axis_rel[x_counter, y_counter].set_yscale("log")
 
-    f2p_axis_rel[x_counter, y_counter] \
-        .set_ylim([0, max(ys_sead_static_relative[y] * 1.1 for y in range((int)(len(ys_sead_static_relative) / 2),
-                                                                          len(ys_sead_static_relative)))])
-    f2p_axis_rel[x_counter, y_counter].set_xlabel('Real Value')
+    # f2p_axis_rel[x_counter, y_counter] \
+    #     .set_ylim([0, max(ys_sead_static_relative[y] * 1.01 for y in range((int)(len(ys_sead_static_relative) / 2),
+    #                                                                       len(ys_sead_static_relative)))])
+    f2p_axis_rel[x_counter, y_counter].set_ylim([0,0.1])
+    f2p_axis_rel[x_counter, y_counter].set_xlabel('Counted Value')
     f2p_axis_rel[x_counter, y_counter].set_ylabel('Relative Resolution')
     f2p_axis_abs[x_counter, y_counter].legend(loc='upper left')
-    f2p_axis_rel[x_counter, y_counter].legend(loc='lower left')
+    f2p_axis_rel[x_counter, y_counter].legend(loc='best')
 
 
 def f2p(method, cnt_size, h_method):
