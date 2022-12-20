@@ -1,2 +1,2 @@
-from F2P import *
+from counters import *
 plot_graphs(8, 3)
